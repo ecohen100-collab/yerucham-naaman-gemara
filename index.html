@@ -98,7 +98,7 @@ const POS=LS.get('yn_pos',{});let stallT=0;
 $('spd').value=String(LS.get('yn_speed',1));
 // כתובות ישירות לקובץ בדרייב, לפי הסדר. anon = בלי העוגיות של חשבון גוגל (חשבון מחובר עלול לקבל דף במקום קובץ).
 // מפתח Drive API (מוגבל לכתובת האתר). הדרך היחידה שדרייב מאפשר נגינה מאתר אחר.
-const DRIVE_KEY='';
+const DRIVE_KEY='AIzaSyASUAN99hpJab0J2HfWvwbDBTMIQmALaV4';
 const SRCS=[...(DRIVE_KEY?[[id=>'https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&key='+DRIVE_KEY,1]]:[]),[id=>'https://drive.usercontent.google.com/download?id='+id+'&export=download',1],
   [id=>'https://drive.usercontent.google.com/download?id='+id+'&export=download',0],
   [id=>'https://drive.google.com/uc?export=open&id='+id,1],
