@@ -58,7 +58,7 @@ summary small{color:var(--mute);font-weight:400}
 <div id="player"><div class="bar"><b id="pt"></b><span>
 <button id="prev">→ שיעור קודם</button><button id="mark">✓ שמעתי</button><button id="next">שיעור הבא ←</button>
 <button id="gm">📖 הגמרא</button><a id="open" target="_blank">בדרייב</a><button id="close">✕</button></span></div>
-<audio id="au" controls preload="metadata"></audio><div id="pfl" hidden>▶ נגן הדרייב: לוחצים על כפתור ההשמעה בתוך המסגרת</div><iframe id="pf" allow="autoplay" hidden></iframe>
+<audio id="au" controls preload="metadata"></audio><div id="pfl" hidden>▶ נגן הדרייב: לוחצים על כפתור ההשמעה בתוך המסגרת <small id="pfw" style="font-weight:400;color:var(--mute)"></small></div><iframe id="pf" allow="autoplay" hidden></iframe>
 <div class="ctl" id="ctl"><button id="b30">↶ 30 שניות</button><button id="b10">↶ 10</button><button id="f30">30 שניות ↷</button>
 <select id="spd" title="מהירות"><option>0.75</option><option>1</option><option>1.25</option><option>1.5</option><option>1.75</option><option>2</option></select></div></div>
 <script>
@@ -96,18 +96,27 @@ function render(){
 const $=id=>document.getElementById(id),au=$('au'),pf=$('pf');
 const POS=LS.get('yn_pos',{});let stallT=0;
 $('spd').value=String(LS.get('yn_speed',1));
-function useIframe(x){clearTimeout(stallT);au.pause();au.removeAttribute('src');au.hidden=true;$('ctl').hidden=true;pf.hidden=false;$('pfl').hidden=false;pf.src='https://drive.google.com/file/d/'+x.id+'/preview';}
+// כתובות ישירות לקובץ בדרייב, לפי הסדר. anon = בלי העוגיות של חשבון גוגל (חשבון מחובר עלול לקבל דף במקום קובץ).
+const SRCS=[[id=>'https://drive.usercontent.google.com/download?id='+id+'&export=download',1],
+  [id=>'https://drive.usercontent.google.com/download?id='+id+'&export=download',0],
+  [id=>'https://drive.google.com/uc?export=open&id='+id,1],
+  [id=>'https://docs.google.com/uc?export=download&id='+id,1]];
+const EC={1:'בוטל',2:'רשת',3:'פענוח',4:'לא נתמך'};
+function tryAudio(x,i,resume,k,why){clearTimeout(stallT);
+  if(k>=SRCS.length){useIframe(x,why);return;}
+  const [u,anon]=SRCS[k],next=r=>{if(cur!==i)return;why.push((k+1)+':'+r);tryAudio(x,i,resume,k+1,why);};
+  au.onerror=()=>next(EC[au.error&&au.error.code]||'שגיאה');
+  stallT=setTimeout(()=>{if(cur===i&&au.readyState===0)next('לא נטען')},6000);
+  au.onloadedmetadata=()=>{clearTimeout(stallT);au.playbackRate=+$('spd').value;if(resume&&POS[x.id])au.currentTime=POS[x.id];};
+  if(anon)au.crossOrigin='anonymous';else au.removeAttribute('crossorigin');
+  au.src=u(x.id);au.play().catch(()=>{});}
+function useIframe(x,why){clearTimeout(stallT);$('pfw').textContent=why&&why.length?'(הנגן המהיר לא נטען: '+why.join(', ')+')':'';au.pause();au.removeAttribute('src');au.hidden=true;$('ctl').hidden=true;pf.hidden=false;$('pfl').hidden=false;pf.src='https://drive.google.com/file/d/'+x.id+'/preview';}
 function play(i,resume){const x=flat[i];if(!x)return;cur=i;lastId=x.id;LS.set('yn_last_id',x.id);
   $('player').style.display='block';$('pt').textContent=x.m+' '+x.t;
   pf.src='';pf.hidden=true;$('pfl').hidden=true;au.hidden=false;$('ctl').hidden=false;
   // amr (הקלטת טלפון) הדפדפן לא מנגן → נגן הדרייב. גם כל כשל טעינה נופל לשם.
   if(x.f==='amr'){useIframe(x)}else{
-    clearTimeout(stallT);const mine=i;
-    au.onerror=()=>{if(cur===mine)useIframe(x)};
-    stallT=setTimeout(()=>{if(cur===mine&&au.readyState===0)useIframe(x)},8000);
-    au.onloadedmetadata=()=>{clearTimeout(stallT);au.playbackRate=+$('spd').value;if(resume&&POS[x.id])au.currentTime=POS[x.id];};
-    au.src='https://drive.usercontent.google.com/download?id='+x.id+'&export=download';
-    au.play().catch(()=>{});}
+    tryAudio(x,i,resume,0,[]);}
   $('gm').hidden=!x.d;
   $('open').href='https://drive.google.com/file/d/'+x.id+'/view';
   updMark();render();sizeGem();mediaSession(x);
