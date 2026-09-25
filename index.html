@@ -50,10 +50,10 @@ summary small{color:var(--mute);font-weight:400}
 <body>
 <header><h1>שיעורי גמרא, ירוחם נעמן</h1><input id="q" placeholder="חיפוש: מסכת ודף, בכל הש"ס: 'שבת כא', 'כא', 'סיום'"></header>
 <main id="app"></main>
-<div id="gem"><div class="gh"><b id="gt"></b>
+<div id="gem"><div class="gh"><button id="gcl">→ חזרה לשיעורים</button><b id="gt"></b>
 <button id="gpv">→ עמוד קודם</button><button id="gnx">עמוד הבא ←</button>
 <button id="gtt">טקסט</button><button id="gtp">דף וילנא</button><button id="gti">צילום ספריא</button>
-<a id="gfull" target="_blank">פתח דף במסך מלא</a><a id="gsef" target="_blank">בספריא</a><button id="gcl">✕ סגור</button></div>
+<a id="gfull" target="_blank">פתח דף במסך מלא</a><a id="gsef" target="_blank">בספריא</a></div>
 <div class="gb"><div id="gtxt"></div><img id="gimg" alt="צילום דף" hidden><iframe id="gpdf" title="דף וילנא" hidden></iframe></div></div>
 <div id="player"><div class="bar"><b id="pt"></b><span>
 <button id="prev">→ שיעור קודם</button><button id="mark">✓ שמעתי</button><button id="next">שיעור הבא ←</button>
@@ -97,7 +97,9 @@ const $=id=>document.getElementById(id),au=$('au'),pf=$('pf');
 const POS=LS.get('yn_pos',{});let stallT=0;
 $('spd').value=String(LS.get('yn_speed',1));
 // כתובות ישירות לקובץ בדרייב, לפי הסדר. anon = בלי העוגיות של חשבון גוגל (חשבון מחובר עלול לקבל דף במקום קובץ).
-const SRCS=[[id=>'https://drive.usercontent.google.com/download?id='+id+'&export=download',1],
+// מפתח Drive API (מוגבל לכתובת האתר). הדרך היחידה שדרייב מאפשר נגינה מאתר אחר.
+const DRIVE_KEY='';
+const SRCS=[...(DRIVE_KEY?[[id=>'https://www.googleapis.com/drive/v3/files/'+id+'?alt=media&key='+DRIVE_KEY,1]]:[]),[id=>'https://drive.usercontent.google.com/download?id='+id+'&export=download',1],
   [id=>'https://drive.usercontent.google.com/download?id='+id+'&export=download',0],
   [id=>'https://drive.google.com/uc?export=open&id='+id,1],
   [id=>'https://docs.google.com/uc?export=download&id='+id,1]];
@@ -129,7 +131,7 @@ $('b30').onclick=()=>skip(-30);$('b10').onclick=()=>skip(-10);$('f30').onclick=(
 $('spd').onchange=()=>{au.playbackRate=+$('spd').value;LS.set('yn_speed',au.playbackRate);};
 $('mark').onclick=()=>{const id=flat[cur].id;done.has(id)?done.delete(id):done.add(id);LS.set('yn_done',[...done]);updMark();render();};
 $('next').onclick=()=>play(cur+1);$('prev').onclick=()=>play(cur-1);
-$('close').onclick=()=>{$('player').style.display='none';au.pause();au.removeAttribute('src');pf.src='';$('gem').style.display='none';cur=null;render();};
+$('close').onclick=()=>{$('player').style.display='none';au.pause();au.removeAttribute('src');pf.src='';closeGem();cur=null;render();};
 // ---- הגמרא: טקסט מספריא וצילום דף וילנא (ספריא) ----
 const MOBILE=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 let amud=null,gmode=LS.get('yn_gmode',MOBILE?'i':'p'),req=0;
@@ -141,7 +143,7 @@ function heb(n){let s='';for(const [v,c] of [[100,'ק'],[90,'צ'],[80,'פ'],[70,
 // משאירים רק תגיות עיצוב, בלי מאפיינים
 const clean=h=>String(h).replace(/<(\/?)(b|strong|i|em|small|br)\b[^>]*>|<[^>]*>/gi,(m,sl,t)=>t?'<'+sl+t.toLowerCase()+'>':'');
 function sizeGem(){$('gem').style.setProperty('--ph',$('player').offsetHeight+'px');}
-function openGem(){const x=flat[cur];amud={d:x.d,b:/:|(?<!חלק) ב(\s|-|$)/.test(x.t)};$('gem').style.display='flex';sizeGem();showAmud();}
+function openGem(){const x=flat[cur];amud={d:x.d,b:/:|(?<!חלק) ב(\s|-|$)/.test(x.t)};if($('gem').style.display!=='flex'){$('gem').style.display='flex';history.pushState({gem:1},'');}sizeGem();showAmud();}
 async function showAmud(){const x=flat[cur],sl=SL[x.m],ab=amud.b?'b':'a',my=++req;
   $('gt').textContent=x.m+' '+heb(amud.d)+(amud.b?' ע"ב':' ע"א');
   $('gsef').href='https://www.sefaria.org/'+sl+'.'+amud.d+ab+'?lang=he&with=Rashi';
@@ -158,8 +160,11 @@ async function showAmud(){const x=flat[cur],sl=SL[x.m],ab=amud.b?'b':'a',my=++re
     const t=(j.versions&&j.versions[0]&&j.versions[0].text)||[];
     $('gtxt').innerHTML=t.length?t.map(p=>'<p>'+clean(p)+'</p>').join(''):'אין טקסט לעמוד הזה.';}
   catch(e){if(my===req)$('gtxt').textContent='לא הצלחתי לטעון את הטקסט. אפשר לפתוח בספריא.';}}
-$('gm').onclick=()=>{if($('gem').style.display==='flex')$('gem').style.display='none';else openGem();};
-$('gcl').onclick=()=>$('gem').style.display='none';
+// כפתור "חזרה" של הדפדפן/הטלפון סוגר את הגמרא במקום לצאת מהאתר
+function closeGem(){if($('gem').style.display!=='flex')return;$('gem').style.display='none';if(history.state&&history.state.gem)history.back();}
+window.addEventListener('popstate',()=>{$('gem').style.display='none';});
+$('gm').onclick=()=>{if($('gem').style.display==='flex')closeGem();else openGem();};
+$('gcl').onclick=closeGem;
 $('gnx').onclick=()=>{if(amud.b){amud.d++;amud.b=false}else amud.b=true;showAmud();};
 $('gpv').onclick=()=>{if(!amud.b){if(amud.d<=2)return;amud.d--;amud.b=true}else amud.b=false;showAmud();};
 $('gtt').onclick=()=>{gmode='t';LS.set('yn_gmode',gmode);showAmud();};
