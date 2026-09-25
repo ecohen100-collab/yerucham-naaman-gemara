@@ -26,7 +26,8 @@ summary small{color:var(--mute);font-weight:400}
 #player .bar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;max-width:900px;margin:0 auto 6px}
 #player b{font-size:1rem}
 #player button,#player a{padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);text-decoration:none;cursor:pointer;font-size:.9rem}
-#player iframe{width:100%;max-width:900px;display:block;margin:0 auto;height:80px;border:0}
+#player iframe{width:100%;max-width:900px;display:block;margin:0 auto;height:90px;border:2px solid var(--acc);border-radius:10px;background:#fff}
+#pfl{max-width:900px;margin:0 auto 4px;font-size:.85rem;color:var(--acc);font-weight:600}
 .none{color:var(--mute);padding:20px;text-align:center}
 
 #player audio{width:100%;max-width:900px;display:block;margin:0 auto}
@@ -57,7 +58,7 @@ summary small{color:var(--mute);font-weight:400}
 <div id="player"><div class="bar"><b id="pt"></b><span>
 <button id="prev">→ שיעור קודם</button><button id="mark">✓ שמעתי</button><button id="next">שיעור הבא ←</button>
 <button id="gm">📖 הגמרא</button><a id="open" target="_blank">בדרייב</a><button id="close">✕</button></span></div>
-<audio id="au" controls preload="metadata"></audio><iframe id="pf" allow="autoplay" hidden></iframe>
+<audio id="au" controls preload="metadata"></audio><div id="pfl" hidden>▶ נגן הדרייב: לוחצים על כפתור ההשמעה בתוך המסגרת</div><iframe id="pf" allow="autoplay" hidden></iframe>
 <div class="ctl" id="ctl"><button id="b30">↶ 30 שניות</button><button id="b10">↶ 10</button><button id="f30">30 שניות ↷</button>
 <select id="spd" title="מהירות"><option>0.75</option><option>1</option><option>1.25</option><option>1.5</option><option>1.75</option><option>2</option></select></div></div>
 <script>
@@ -95,10 +96,10 @@ function render(){
 const $=id=>document.getElementById(id),au=$('au'),pf=$('pf');
 const POS=LS.get('yn_pos',{});let stallT=0;
 $('spd').value=String(LS.get('yn_speed',1));
-function useIframe(x){clearTimeout(stallT);au.pause();au.removeAttribute('src');au.hidden=true;$('ctl').hidden=true;pf.hidden=false;pf.src='https://drive.google.com/file/d/'+x.id+'/preview';}
+function useIframe(x){clearTimeout(stallT);au.pause();au.removeAttribute('src');au.hidden=true;$('ctl').hidden=true;pf.hidden=false;$('pfl').hidden=false;pf.src='https://drive.google.com/file/d/'+x.id+'/preview';}
 function play(i,resume){const x=flat[i];if(!x)return;cur=i;lastId=x.id;LS.set('yn_last_id',x.id);
   $('player').style.display='block';$('pt').textContent=x.m+' '+x.t;
-  pf.src='';pf.hidden=true;au.hidden=false;$('ctl').hidden=false;
+  pf.src='';pf.hidden=true;$('pfl').hidden=true;au.hidden=false;$('ctl').hidden=false;
   // amr (הקלטת טלפון) הדפדפן לא מנגן → נגן הדרייב. גם כל כשל טעינה נופל לשם.
   if(x.f==='amr'){useIframe(x)}else{
     clearTimeout(stallT);const mine=i;
@@ -157,6 +158,8 @@ $('gti').onclick=()=>{gmode='i';LS.set('yn_gmode',gmode);showAmud();};
 $('gtp').onclick=()=>{if(MOBILE&&SL[flat[cur].m]!=='Shekalim'){window.open($('gfull').href,'_blank');return;}gmode='p';LS.set('yn_gmode',gmode);showAmud();};
 $('gimg').onerror=()=>{if($('gimg').hidden)return;$('gimg').hidden=true;$('gtxt').hidden=false;$('gtxt').textContent='אין צילום לעמוד הזה.';};
 window.addEventListener('resize',sizeGem);
+// הפאנל תמיד נגמר מעל הנגן, גם כשהנגן משנה גובה (מעבר לנגן הדרייב, שבירת שורות)
+if(window.ResizeObserver)new ResizeObserver(sizeGem).observe($('player'));
 const skip=d=>{if(!au.hidden&&au.src)au.currentTime=Math.min(Math.max(0,au.currentTime+d),au.duration||1e9);};
 // מקשים: רווח עצור/נגן, חצים 10 שניות, J/L 30 שניות, N/P שיעור הבא/קודם. לא בזמן הקלדה בחיפוש.
 document.addEventListener('keydown',e=>{if(cur==null||e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.ctrlKey||e.metaKey||e.altKey)return;
