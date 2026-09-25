@@ -40,6 +40,8 @@ summary small{color:var(--mute);font-weight:400}
 #gtxt{max-width:760px;margin:0 auto;font-family:"Frank Ruhl Libre","David","Times New Roman",serif;font-size:1.25rem;line-height:1.9}
 #gtxt p{margin:0 0 .8em}
 #gimg{display:block;max-width:100%;margin:0 auto;background:#fff}
+#gpdf{width:100%;height:100%;min-height:70vh;border:0;background:#fff}
+#gem .gb.pdf{padding:0;display:flex;flex-direction:column}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -48,9 +50,9 @@ summary small{color:var(--mute);font-weight:400}
 <main id="app"></main>
 <div id="gem"><div class="gh"><b id="gt"></b>
 <button id="gpv">→ עמוד קודם</button><button id="gnx">עמוד הבא ←</button>
-<button id="gtt">טקסט</button><button id="gti">דף וילנא</button>
-<a id="gsef" target="_blank">בספריא</a><button id="gcl">✕ סגור</button></div>
-<div class="gb"><div id="gtxt"></div><img id="gimg" alt="דף וילנא" hidden></div></div>
+<button id="gtt">טקסט</button><button id="gtp">דף וילנא</button><button id="gti">צילום ספריא</button>
+<a id="gfull" target="_blank">פתח דף במסך מלא</a><a id="gsef" target="_blank">בספריא</a><button id="gcl">✕ סגור</button></div>
+<div class="gb"><div id="gtxt"></div><img id="gimg" alt="צילום דף" hidden><iframe id="gpdf" title="דף וילנא" hidden></iframe></div></div>
 <div id="player"><div class="bar"><b id="pt"></b><span>
 <button id="prev">→ שיעור קודם</button><button id="mark">✓ שמעתי</button><button id="next">שיעור הבא ←</button>
 <button id="gm">📖 הגמרא</button><a id="open" target="_blank">בדרייב</a><button id="close">✕</button></span></div>
@@ -104,7 +106,7 @@ function play(i,resume){const x=flat[i];if(!x)return;cur=i;lastId=x.id;LS.set('y
     au.onloadedmetadata=()=>{clearTimeout(stallT);au.playbackRate=+$('spd').value;if(resume&&POS[x.id])au.currentTime=POS[x.id];};
     au.src='https://drive.usercontent.google.com/download?id='+x.id+'&export=download';
     au.play().catch(()=>{});}
-  $('gm').hidden=!(x.d&&SL[x.m]!=='Shekalim');
+  $('gm').hidden=!x.d;
   $('open').href='https://drive.google.com/file/d/'+x.id+'/view';
   updMark();render();sizeGem();
   if($('gem').style.display==='flex'){if($('gm').hidden)$('gem').style.display='none';else openGem();}}
@@ -121,6 +123,10 @@ $('next').onclick=()=>play(cur+1);$('prev').onclick=()=>play(cur-1);
 $('close').onclick=()=>{$('player').style.display='none';au.pause();au.removeAttribute('src');pf.src='';$('gem').style.display='none';cur=null;render();};
 // ---- הגמרא: טקסט מספריא וצילום דף וילנא (ספריא) ----
 let amud=null,gmode=LS.get('yn_gmode','t'),req=0;
+// מספור הדפים בפורטל הדף היומי: עמודים רצופים לכל הש"ס (ברכות ב. = 1). נבדק מול הפורטל בכל גבולות המסכתות.
+const LASTD=[64,'a',157,'b',105,'a',121,'b',22,'b',88,'a',56,'b',40,'b',35,'a',31,'a',32,'a',29,'a',27,'a',122,'b',112,'b',91,'b',66,'b',49,'b',90,'b',82,'b',119,'b',119,'a',176,'b',113,'b',24,'b',49,'b',76,'b',14,'a',120,'b',110,'a',142,'a',61,'a'];
+const DY={};{let base=0;Object.values(SL).forEach((sl,k)=>{DY[sl]=base;base+=(LASTD[2*k]-2)*2+(LASTD[2*k+1]==='b'?2:1);});}
+const dyUrl=(sl,d,b)=>'https://www.daf-yomi.com/Data/UploadedFiles/DY_Page/'+(DY[sl]+(d-2)*2+(b?2:1))+'.pdf';
 function heb(n){let s='';for(const [v,c] of [[100,'ק'],[90,'צ'],[80,'פ'],[70,'ע'],[60,'ס'],[50,'נ'],[40,'מ'],[30,'ל'],[20,'כ'],[10,'י'],[9,'ט'],[8,'ח'],[7,'ז'],[6,'ו'],[5,'ה'],[4,'ד'],[3,'ג'],[2,'ב'],[1,'א']])while(n>=v){s+=c;n-=v;}return s.replace(/יה$/,'טו').replace(/יו$/,'טז');}
 // משאירים רק תגיות עיצוב, בלי מאפיינים
 const clean=h=>String(h).replace(/<(\/?)(b|strong|i|em|small|br)\b[^>]*>|<[^>]*>/gi,(m,sl,t)=>t?'<'+sl+t.toLowerCase()+'>':'');
@@ -129,9 +135,13 @@ function openGem(){const x=flat[cur];amud={d:x.d,b:/:|(?<!חלק) ב(\s|-|$)/.te
 async function showAmud(){const x=flat[cur],sl=SL[x.m],ab=amud.b?'b':'a',my=++req;
   $('gt').textContent=x.m+' '+heb(amud.d)+(amud.b?' ע"ב':' ע"א');
   $('gsef').href='https://www.sefaria.org/'+sl+'.'+amud.d+ab+'?lang=he&with=Rashi';
-  $('gtt').classList.toggle('on',gmode==='t');$('gti').classList.toggle('on',gmode==='i');
-  $('gtxt').hidden=gmode!=='t';$('gimg').hidden=gmode!=='i';$('gem').querySelector('.gb').scrollTop=0;
-  if(gmode==='i'){$('gimg').src='https://manuscripts.sefaria.org/vilna-romm/'+sl+'_'+amud.d+ab+'.jpg';return;}
+  const shk=sl==='Shekalim';$('gtt').hidden=$('gti').hidden=shk;const mode=shk?'p':gmode; // לשקלים יש רק את הפורטל
+  $('gtt').classList.toggle('on',mode==='t');$('gti').classList.toggle('on',mode==='i');$('gtp').classList.toggle('on',mode==='p');
+  $('gtxt').hidden=mode!=='t';$('gimg').hidden=mode!=='i';$('gpdf').hidden=mode!=='p';
+  $('gem').querySelector('.gb').classList.toggle('pdf',mode==='p');$('gem').querySelector('.gb').scrollTop=0;
+  $('gfull').href=dyUrl(sl,amud.d,amud.b);$('gsef').hidden=shk;
+  if(mode==='p'){$('gpdf').src=dyUrl(sl,amud.d,amud.b);return;}
+  if(mode==='i'){$('gimg').src='https://manuscripts.sefaria.org/vilna-romm/'+sl+'_'+amud.d+ab+'.jpg';return;}
   $('gtxt').textContent='טוען…';
   try{const j=await (await fetch('https://www.sefaria.org/api/v3/texts/'+sl+'.'+amud.d+ab+'?version=hebrew')).json();
     if(my!==req)return; // המשתמש כבר עבר עמוד
@@ -144,7 +154,8 @@ $('gnx').onclick=()=>{if(amud.b){amud.d++;amud.b=false}else amud.b=true;showAmud
 $('gpv').onclick=()=>{if(!amud.b){if(amud.d<=2)return;amud.d--;amud.b=true}else amud.b=false;showAmud();};
 $('gtt').onclick=()=>{gmode='t';LS.set('yn_gmode',gmode);showAmud();};
 $('gti').onclick=()=>{gmode='i';LS.set('yn_gmode',gmode);showAmud();};
-$('gimg').onerror=()=>{if(gmode!=='i')return;$('gimg').hidden=true;$('gtxt').hidden=false;$('gtxt').textContent='אין צילום לעמוד הזה.';};
+$('gtp').onclick=()=>{gmode='p';LS.set('yn_gmode',gmode);showAmud();};
+$('gimg').onerror=()=>{if($('gimg').hidden)return;$('gimg').hidden=true;$('gtxt').hidden=false;$('gtxt').textContent='אין צילום לעמוד הזה.';};
 window.addEventListener('resize',sizeGem);
 $('q').oninput=render;render();
 </script>
