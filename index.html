@@ -43,6 +43,7 @@ summary small{color:var(--mute);font-weight:400}
 #gpdf{width:100%;height:100%;min-height:70vh;border:0;background:#fff}
 #gem .gb.pdf{padding:0;display:flex;flex-direction:column}
 [hidden]{display:none!important}
+@media (max-width:600px){#player .bar{flex-direction:column;align-items:stretch}#player .bar span{display:flex;flex-wrap:wrap;gap:4px}#player button,#player a{padding:6px 8px;font-size:.85rem}#gem .gh{padding:6px 8px}#gtxt{font-size:1.1rem}}
 </style>
 </head>
 <body>
@@ -86,7 +87,7 @@ function render(){
     if(!items.length)return;any=true;
     if(m.s!==seder){seder=m.s;h+=`<div class="seder">סדר ${seder}</div>`}
     const nd=items.filter(([x,i])=>done.has(x.id)).length;
-    h+=`<details${q?' open':''}><summary>${m.m}<small>${nd}/${items.length} שיעורים</small></summary><div class="grid">`+
+    h+=`<details${q||(li>=0&&flat[li].mi===mi)?' open':''}><summary>${m.m}<small>${nd}/${items.length} שיעורים</small></summary><div class="grid">`+
       items.map(([x,i])=>`<div class="l${x.d==null?' x':''}${done.has(x.id)?' done':''}${cur===i?' cur':''}" onclick="play(${i})">${esc(x.t)}</div>`).join('')+'</div></details>';
   });
   app.innerHTML=h+(any?'':'<div class="none">לא נמצא</div>');
@@ -108,21 +109,20 @@ function play(i,resume){const x=flat[i];if(!x)return;cur=i;lastId=x.id;LS.set('y
     au.play().catch(()=>{});}
   $('gm').hidden=!x.d;
   $('open').href='https://drive.google.com/file/d/'+x.id+'/view';
-  updMark();render();sizeGem();
+  updMark();render();sizeGem();mediaSession(x);
   if($('gem').style.display==='flex'){if($('gm').hidden)$('gem').style.display='none';else openGem();}}
 function updMark(){$('mark').textContent=done.has(flat[cur].id)?'↺ בטל סימון':'✓ שמעתי';}
 let lastSave=0;
 au.ontimeupdate=()=>{if(cur==null||Date.now()-lastSave<5000)return;lastSave=Date.now();POS[flat[cur].id]=Math.floor(au.currentTime);LS.set('yn_pos',POS);};
 au.onended=()=>{const x=flat[cur];delete POS[x.id];LS.set('yn_pos',POS);if(!done.has(x.id)){done.add(x.id);LS.set('yn_done',[...done]);updMark();render();}};
-$('b30').onclick=()=>au.currentTime=Math.max(0,au.currentTime-30);
-$('b10').onclick=()=>au.currentTime=Math.max(0,au.currentTime-10);
-$('f30').onclick=()=>au.currentTime=Math.min(au.duration||1e9,au.currentTime+30);
+$('b30').onclick=()=>skip(-30);$('b10').onclick=()=>skip(-10);$('f30').onclick=()=>skip(30);
 $('spd').onchange=()=>{au.playbackRate=+$('spd').value;LS.set('yn_speed',au.playbackRate);};
 $('mark').onclick=()=>{const id=flat[cur].id;done.has(id)?done.delete(id):done.add(id);LS.set('yn_done',[...done]);updMark();render();};
 $('next').onclick=()=>play(cur+1);$('prev').onclick=()=>play(cur-1);
 $('close').onclick=()=>{$('player').style.display='none';au.pause();au.removeAttribute('src');pf.src='';$('gem').style.display='none';cur=null;render();};
 // ---- הגמרא: טקסט מספריא וצילום דף וילנא (ספריא) ----
-let amud=null,gmode=LS.get('yn_gmode','t'),req=0;
+const MOBILE=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+let amud=null,gmode=LS.get('yn_gmode',MOBILE?'i':'p'),req=0;
 // מספור הדפים בפורטל הדף היומי: עמודים רצופים לכל הש"ס (ברכות ב. = 1). נבדק מול הפורטל בכל גבולות המסכתות.
 const LASTD=[64,'a',157,'b',105,'a',121,'b',22,'b',88,'a',56,'b',40,'b',35,'a',31,'a',32,'a',29,'a',27,'a',122,'b',112,'b',91,'b',66,'b',49,'b',90,'b',82,'b',119,'b',119,'a',176,'b',113,'b',24,'b',49,'b',76,'b',14,'a',120,'b',110,'a',142,'a',61,'a'];
 const DY={};{let base=0;Object.values(SL).forEach((sl,k)=>{DY[sl]=base;base+=(LASTD[2*k]-2)*2+(LASTD[2*k+1]==='b'?2:1);});}
@@ -154,9 +154,22 @@ $('gnx').onclick=()=>{if(amud.b){amud.d++;amud.b=false}else amud.b=true;showAmud
 $('gpv').onclick=()=>{if(!amud.b){if(amud.d<=2)return;amud.d--;amud.b=true}else amud.b=false;showAmud();};
 $('gtt').onclick=()=>{gmode='t';LS.set('yn_gmode',gmode);showAmud();};
 $('gti').onclick=()=>{gmode='i';LS.set('yn_gmode',gmode);showAmud();};
-$('gtp').onclick=()=>{gmode='p';LS.set('yn_gmode',gmode);showAmud();};
+$('gtp').onclick=()=>{if(MOBILE&&SL[flat[cur].m]!=='Shekalim'){window.open($('gfull').href,'_blank');return;}gmode='p';LS.set('yn_gmode',gmode);showAmud();};
 $('gimg').onerror=()=>{if($('gimg').hidden)return;$('gimg').hidden=true;$('gtxt').hidden=false;$('gtxt').textContent='אין צילום לעמוד הזה.';};
 window.addEventListener('resize',sizeGem);
+const skip=d=>{if(!au.hidden&&au.src)au.currentTime=Math.min(Math.max(0,au.currentTime+d),au.duration||1e9);};
+// מקשים: רווח עצור/נגן, חצים 10 שניות, J/L 30 שניות, N/P שיעור הבא/קודם. לא בזמן הקלדה בחיפוש.
+document.addEventListener('keydown',e=>{if(cur==null||e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.ctrlKey||e.metaKey||e.altKey)return;
+  const k=e.key.toLowerCase();
+  if(k===' '){e.preventDefault();au.paused?au.play():au.pause();}
+  else if(k==='arrowright')skip(-10);else if(k==='arrowleft')skip(10); // RTL: ימינה = אחורה
+  else if(k==='j')skip(-30);else if(k==='l')skip(30);
+  else if(k==='n')play(cur+1);else if(k==='p')play(cur-1);else return;});
+function mediaSession(x){if(!('mediaSession' in navigator))return;
+  navigator.mediaSession.metadata=new MediaMetadata({title:x.m+' '+x.t,artist:'ירוחם נעמן',album:'שיעורי גמרא'});
+  const h=(a,f)=>{try{navigator.mediaSession.setActionHandler(a,f)}catch(e){}};
+  h('seekbackward',()=>skip(-30));h('seekforward',()=>skip(30));
+  h('previoustrack',()=>play(cur-1));h('nexttrack',()=>play(cur+1));}
 $('q').oninput=render;render();
 </script>
 </body>
